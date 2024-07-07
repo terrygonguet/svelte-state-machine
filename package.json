@@ -1,6 +1,6 @@
 {
 	"name": "@terrygonguet/svelte-state-machine",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"type": "module",
 	"license": "MIT",
 	"scripts": {
