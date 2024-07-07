@@ -6,14 +6,13 @@
 	"scripts": {
 		"build": "tsup"
 	},
-	"main": "dist/index.js",
 	"files": [
 		"dist"
 	],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"require": "./dist/index.js"
+			"import": "./dist/index.js"
 		}
 	},
 	"author": {
