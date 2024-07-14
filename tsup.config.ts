@@ -5,8 +5,8 @@ export default defineConfig({
 	target: "esnext",
 	format: "esm",
 	clean: true,
+	config: "tsconfig.json",
 	dts: {
-		compilerOptions: { moduleResolution: "node" },
 		resolve: true,
 	},
 })
