@@ -5,7 +5,8 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "tsup",
-		"test": "vitest"
+		"test": "vitest",
+		"prepublishOnly": "npm run build"
 	},
 	"files": [
 		"dist"
