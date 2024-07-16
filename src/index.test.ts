@@ -76,16 +76,16 @@ describe("Sync transitions", { concurrent: true }, () => {
 		expect(get(is.on)).toBe(true)
 	})
 
-	test("The 'transitioning' store stays off during a sync transition", () => {
+	test("The 'transitioning' store stays false during a sync transition", () => {
 		const { dispatch, transitioning } = stateMachine<
 			Sync.State,
 			Sync.Action
 		>({ type: "off" }, Sync.machine)
-		const verboten = vi.fn()
-		transitioning.subscribe(verboten)
-		expect(verboten).toHaveBeenCalledOnce()
+		const onTransitionChange = vi.fn()
+		transitioning.subscribe(onTransitionChange)
+		expect(onTransitionChange).toHaveBeenCalledOnce()
 		dispatch({ type: "toggle" })
-		expect(verboten).toHaveBeenCalledOnce()
+		expect(onTransitionChange).toHaveBeenCalledOnce()
 	})
 
 	test("The machine can catch errors", () => {
@@ -107,6 +107,32 @@ describe("Sync transitions", { concurrent: true }, () => {
 		)
 		dispatch({ type: "fail" })
 		expect(get(state)).toEqual({ type: "error", error: "fail" })
+	})
+
+	test("The machine runs onEnter & onExit hooks", () => {
+		const onEnter = vi.fn()
+		const onExit = vi.fn()
+		const { dispatch } = stateMachine<Sync.State, Sync.Action>(
+			{ type: "off" },
+			{
+				hooks: {
+					off: { onExit },
+					on: { onEnter },
+				},
+			},
+			Sync.machine,
+		)
+		dispatch({ type: "toggle" })
+
+		expect(onEnter).toHaveBeenCalledOnce()
+		expect(onEnter.mock.calls[0]?.[0]).toEqual({ type: "off" })
+		expect(onEnter.mock.calls[0]?.[1]).toEqual({ type: "on", level: 1 })
+		expect(onEnter.mock.calls[0]?.[2]).toEqual({ type: "toggle" })
+
+		expect(onExit).toHaveBeenCalledOnce()
+		expect(onExit.mock.calls[0]?.[0]).toEqual({ type: "off" })
+		expect(onExit.mock.calls[0]?.[1]).toEqual({ type: "on", level: 1 })
+		expect(onExit.mock.calls[0]?.[2]).toEqual({ type: "toggle" })
 	})
 })
 
@@ -140,7 +166,11 @@ describe("Async transitions", { concurrent: true }, () => {
 	test("The machine moves to a loading state during an async transition", async () => {
 		const { state, dispatch, transitioning } = stateMachine<State, Action>(
 			{ type: "initial" },
-			{ async: () => ({ type: "loading" }) },
+			{
+				hooks: {
+					initial: { onAsyncTransition: () => ({ type: "loading" }) },
+				},
+			},
 			{
 				initial: {
 					async doRequest(state, action) {
@@ -162,7 +192,7 @@ describe("Async transitions", { concurrent: true }, () => {
 	test("The machine ignores multiple actions in 'block' async mode", async () => {
 		const { state, dispatch } = stateMachine<State, Action>(
 			{ type: "initial" },
-			{ async: "block" },
+			{ asyncMode: "block" },
 			{
 				initial: {
 					async doRequest(state, action) {
@@ -184,7 +214,7 @@ describe("Async transitions", { concurrent: true }, () => {
 	test("The machine aborts transition in 'abort' async mode", async () => {
 		const { state, dispatch, transitioning } = stateMachine<State, Action>(
 			{ type: "initial" },
-			{ async: "abort" },
+			{ asyncMode: "abort" },
 			{
 				initial: {
 					async doRequest() {
@@ -217,8 +247,10 @@ describe("Async transitions", { concurrent: true }, () => {
 		const { state, dispatch } = stateMachine<State, Action>(
 			{ type: "initial" },
 			{
-				async: () => ({ type: "loading" }),
 				onError: error => ({ type: "error", error }),
+				hooks: {
+					initial: { onAsyncTransition: () => ({ type: "loading" }) },
+				},
 			},
 			{
 				initial: {
@@ -233,5 +265,40 @@ describe("Async transitions", { concurrent: true }, () => {
 		expect(get(state)).toEqual({ type: "loading" })
 		await delay(100)
 		expect(get(state)).toEqual({ type: "error", error: "fail" })
+	})
+
+	test("The machine runs onEnter & onExit hooks", async () => {
+		const onEnter = vi.fn()
+		const onExit = vi.fn()
+		const { dispatch } = stateMachine<State, Action>(
+			{ type: "initial" },
+			{
+				hooks: {
+					initial: { onExit },
+					result: { onEnter },
+				},
+			},
+			{
+				initial: {
+					async doRequest() {
+						await delay(100)
+						return { type: "result", data: 5 }
+					},
+				},
+			},
+		)
+		dispatch({ type: "doRequest" })
+
+		await delay(100)
+
+		expect(onEnter).toHaveBeenCalledOnce()
+		expect(onEnter.mock.calls[0]?.[0]).toEqual({ type: "initial" })
+		expect(onEnter.mock.calls[0]?.[1]).toEqual({ type: "result", data: 5 })
+		expect(onEnter.mock.calls[0]?.[2]).toEqual({ type: "doRequest" })
+
+		expect(onExit).toHaveBeenCalledOnce()
+		expect(onExit.mock.calls[0]?.[0]).toEqual({ type: "initial" })
+		expect(onExit.mock.calls[0]?.[1]).toEqual({ type: "result", data: 5 })
+		expect(onExit.mock.calls[0]?.[2]).toEqual({ type: "doRequest" })
 	})
 })
