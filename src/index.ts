@@ -23,8 +23,26 @@ type StateMachineOptions<
 	State extends { type: string },
 	Action extends { type: string },
 > = {
-	async?: "block" | "abort" | ((state: State, action: Action) => State)
+	asyncMode?: "block" | "abort"
 	onError?: (error: unknown, state: State, action: Action) => State
+	hooks?: {
+		[StateType in State["type"]]?: {
+			onEnter?: <CurState extends State & { type: StateType }>(
+				prevState: State,
+				curState: CurState,
+				action: Action,
+			) => void
+			onExit?: <PrevState extends State & { type: StateType }>(
+				prevState: PrevState,
+				nextState: State,
+				action: Action,
+			) => void
+			onAsyncTransition?: <CurState extends State & { type: StateType }>(
+				state: CurState,
+				action: Action,
+			) => State | undefined
+		}
+	}
 }
 
 type StateMachineBundle<
@@ -77,7 +95,7 @@ function _stateMachine<
 	Action extends { type: string },
 >(
 	initialState: State,
-	{ async = "block", onError }: StateMachineOptions<State, Action>,
+	{ asyncMode = "block", onError, hooks }: StateMachineOptions<State, Action>,
 	machine: StateMachine<State, Action>,
 ): StateMachineBundle<State, Action> {
 	let state = writable(initialState)
@@ -90,12 +108,12 @@ function _stateMachine<
 
 	function dispatch($action: Action) {
 		if ($transitioning) {
-			switch (async) {
-				case "block":
-					return
+			switch (asyncMode) {
 				case "abort":
 					abortController?.abort()
 					break
+				case "block":
+					return
 			}
 		}
 
@@ -103,25 +121,27 @@ function _stateMachine<
 			let stateType = $state.type as State["type"]
 			let actionType = $action.type as Action["type"]
 			let reducer = machine[stateType]?.[actionType]
+			let { onExit, onAsyncTransition } = hooks?.[stateType] ?? {}
 
 			try {
 				let next = reducer?.($state, $action) ?? $state
 				if (next instanceof Promise) {
 					transitioning.set(true)
 
-					let loadingState =
-						typeof async == "function"
-							? async($state, $action)
-							: undefined
+					let loadingState = onAsyncTransition?.($state, $action)
 
-					if (async == "abort") {
+					if (asyncMode == "abort") {
 						abortController = new AbortController()
 						next = abortable(next, abortController.signal)
 					}
 
 					next.then(
-						newState => {
-							state.set(newState)
+						next => {
+							onExit?.($state, next, $action)
+							let nextType = next.type as State["type"]
+							const { onEnter } = hooks?.[nextType] ?? {}
+							onEnter?.($state, next, $action)
+							state.set(next)
 							transitioning.set(false)
 						},
 						error => {
@@ -134,7 +154,13 @@ function _stateMachine<
 					)
 
 					return loadingState ?? $state
-				} else return next
+				} else {
+					onExit?.($state, next, $action)
+					let nextType = next.type as State["type"]
+					const { onEnter } = hooks?.[nextType] ?? {}
+					onEnter?.($state, next, $action)
+					return next
+				}
 			} catch (error) {
 				if (onError) return onError(error, $state, $action)
 				else throw error
