@@ -1,5 +1,21 @@
 # Changelog
 
+# 4.0.0
+
+## Breaking
+
+-   The `async` option has been renamed to `asyncMode` and can no longer be a
+    function
+
+## Added
+
+-   The `options` object can now contain a `hooks` property
+
+## Changed
+
+-   Providing a function to the `async` option has been moved to the
+    `onAsyncTransition` hook
+
 # 3.0.0
 
 ## Breaking
