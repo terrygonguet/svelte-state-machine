@@ -137,10 +137,12 @@ function _stateMachine<
 
 					next.then(
 						next => {
-							onExit?.($state, next, $action)
-							let nextType = next.type as State["type"]
-							const { onEnter } = hooks?.[nextType] ?? {}
-							onEnter?.($state, next, $action)
+							if ($state.type != next.type) {
+								onExit?.($state, next, $action)
+								let nextType = next.type as State["type"]
+								const { onEnter } = hooks?.[nextType] ?? {}
+								onEnter?.($state, next, $action)
+							}
 							state.set(next)
 							transitioning.set(false)
 						},
@@ -155,10 +157,12 @@ function _stateMachine<
 
 					return loadingState ?? $state
 				} else {
-					onExit?.($state, next, $action)
-					let nextType = next.type as State["type"]
-					const { onEnter } = hooks?.[nextType] ?? {}
-					onEnter?.($state, next, $action)
+					if ($state.type != next.type) {
+						onExit?.($state, next, $action)
+						let nextType = next.type as State["type"]
+						const { onEnter } = hooks?.[nextType] ?? {}
+						onEnter?.($state, next, $action)
+					}
 					return next
 				}
 			} catch (error) {
