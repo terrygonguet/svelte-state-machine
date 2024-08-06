@@ -1,5 +1,16 @@
 # Changelog
 
+# 4.1.0
+
+## Added
+
+-   Added the `onStay` hook
+
+## Changed
+
+-   Fix `onEnter` & `onExit` hooks being called when the machine stayed in the
+    same state
+
 # 4.0.0
 
 ## Breaking
