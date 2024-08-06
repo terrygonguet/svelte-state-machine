@@ -150,6 +150,7 @@ const hooks = {
 	stateA: {
 		onEnter(prevState, curState, action) {}
 		onExit(prevState, nextState, action) {}
+		onStay(prevState, nextState, action) {}
 		onAsyncTransition(state, action) {}
 	},
 	// more hooks for other states
@@ -159,6 +160,8 @@ const hooks = {
 -   `onEnter`: called just before the state machine transitions to the specified
     state
 -   `onExit`: called just before the machine transitions away from the specified
+    state
+-   `onStay`: called when the machine ran a transition but stayed in the same
     state
 -   `onAsyncTransition`: a function called when an async transition starts; can
     return a new state object to be transitioned to while the async tranition is
