@@ -29,12 +29,17 @@ type StateMachineOptions<
 		[StateType in State["type"]]?: {
 			onEnter?: <CurState extends State & { type: StateType }>(
 				prevState: State,
-				curState: CurState,
+				nextState: CurState,
 				action: Action,
 			) => void
 			onExit?: <PrevState extends State & { type: StateType }>(
 				prevState: PrevState,
 				nextState: State,
+				action: Action,
+			) => void
+			onStay?: <CurState extends State & { type: StateType }>(
+				prevState: CurState,
+				nextState: CurState,
 				action: Action,
 			) => void
 			onAsyncTransition?: <CurState extends State & { type: StateType }>(
@@ -123,6 +128,16 @@ function _stateMachine<
 			let reducer = machine[stateType]?.[actionType]
 			let { onExit, onAsyncTransition } = hooks?.[stateType] ?? {}
 
+			function runHooks(next: State) {
+				let nextType = next.type as State["type"]
+				if ($state.type != next.type) {
+					onExit?.($state, next, $action)
+					hooks?.[nextType]?.onEnter?.($state, next, $action)
+				} else {
+					hooks?.[nextType]?.onStay?.($state, next, $action)
+				}
+			}
+
 			try {
 				let next = reducer?.($state, $action) ?? $state
 				if (next instanceof Promise) {
@@ -137,12 +152,7 @@ function _stateMachine<
 
 					next.then(
 						next => {
-							if ($state.type != next.type) {
-								onExit?.($state, next, $action)
-								let nextType = next.type as State["type"]
-								const { onEnter } = hooks?.[nextType] ?? {}
-								onEnter?.($state, next, $action)
-							}
+							runHooks(next)
 							state.set(next)
 							transitioning.set(false)
 						},
@@ -157,12 +167,7 @@ function _stateMachine<
 
 					return loadingState ?? $state
 				} else {
-					if ($state.type != next.type) {
-						onExit?.($state, next, $action)
-						let nextType = next.type as State["type"]
-						const { onEnter } = hooks?.[nextType] ?? {}
-						onEnter?.($state, next, $action)
-					}
+					runHooks(next)
 					return next
 				}
 			} catch (error) {
