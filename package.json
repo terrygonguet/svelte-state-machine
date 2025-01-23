@@ -1,6 +1,6 @@
 {
 	"name": "@terrygonguet/svelte-state-machine",
-	"version": "4.1.0",
+	"version": "4.2.0",
 	"type": "module",
 	"license": "MIT",
 	"scripts": {
@@ -23,7 +23,7 @@
 		"url": "https://terry.gonguet.com"
 	},
 	"peerDependencies": {
-		"svelte": "^4"
+		"svelte": "^3 || ^4 || ^5"
 	},
 	"devDependencies": {
 		"tsup": "^8.1.0",
