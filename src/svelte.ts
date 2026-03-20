@@ -1,7 +1,7 @@
 import { createSubscriber } from "svelte/reactivity"
 import { stateMachine as baseStateMachine, type MachineDefinition, type StateMachine } from "./index.js"
 
-export { onError, onStateChange, onEnter, onExit, onStay } from "./index.js"
+export { onError, onStateChange, onEnter, onExit, onStay, type MachineDefinition, type StateMachine } from "./index.js"
 
 export function stateMachine<State extends { type: string }, Action extends { type: string }>(
 	initialState: State,

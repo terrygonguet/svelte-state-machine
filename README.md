@@ -172,9 +172,16 @@ The `stateMachine` function returns an object with a few properties:
 
 ## Svelte
 
-The package exposes a Svelte specific implementation of the state machine that behaves identically but makes the
-`machine.state` property reactive.
+The package exposes 2 Svelte specific implementations of the state machine that behave identically but make the state
+reactive.
 
-```js
-import { stateMachine } from "@terrygonguet/state-machine/svelte"
+- `@terrygonguet/state-machine/svelte` makes the `machine.state` property reactive for Svelte 5
+- `@terrygonguet/state-machine/svelte-store` adds a `machine.store` property that is a `Readable<State>` store
+
+```ts
+import { stateMachine } from "@terrygonguet/state-machine/svelte-store"
+
+const { store, dispatch } = stateMachine<State, Action>({ type: "initial" }, { ... })
+
+// $store is the machine's state
 ```

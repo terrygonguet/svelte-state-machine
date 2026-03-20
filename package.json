@@ -1,6 +1,6 @@
 {
 	"name": "@terrygonguet/state-machine",
-	"version": "1.0.0-beta.1",
+	"version": "1.0.0-beta.2",
 	"type": "module",
 	"license": "MIT",
 	"scripts": {
@@ -19,6 +19,10 @@
 		"./svelte": {
 			"types": "./dist/svelte.d.ts",
 			"import": "./dist/svelte.js"
+		},
+		"./svelte-store": {
+			"types": "./dist/svelte-store.d.ts",
+			"import": "./dist/svelte-store.js"
 		}
 	},
 	"author": {
