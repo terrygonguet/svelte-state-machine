@@ -15,8 +15,7 @@
 		"noImplicitOverride": true,
 		// Transpile our TypeScript code to JavaScript
 		"module": "NodeNext",
-		"outDir": "dist",
-		"lib": ["es2022", "DOM"]
+		"lib": ["ESNext", "DOM"]
 	},
 	// Include the necessary files for your project
 	"include": ["**/*.ts"],

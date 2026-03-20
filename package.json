@@ -1,6 +1,6 @@
 {
-	"name": "@terrygonguet/svelte-state-machine",
-	"version": "4.2.0",
+	"name": "@terrygonguet/state-machine",
+	"version": "1.0.0-beta.1",
 	"type": "module",
 	"license": "MIT",
 	"scripts": {
@@ -15,6 +15,10 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./svelte": {
+			"types": "./dist/svelte.d.ts",
+			"import": "./dist/svelte.js"
 		}
 	},
 	"author": {
@@ -23,11 +27,11 @@
 		"url": "https://terry.gonguet.com"
 	},
 	"peerDependencies": {
-		"svelte": "^3 || ^4 || ^5"
+		"svelte": "^5.7.0"
 	},
 	"devDependencies": {
-		"tsup": "^8.1.0",
-		"typescript": "^5.5.3",
-		"vitest": "^2.0.2"
+		"tsup": "^8.5.1",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.0"
 	}
 }

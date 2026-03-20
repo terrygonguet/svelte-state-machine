@@ -1,213 +1,114 @@
-import { writable, readonly, type Readable, derived } from "svelte/store"
+export const onError = Symbol("@terrygonguet/svelte-state-machine__onError")
+export const onStateChange = Symbol("@terrygonguet/svelte-state-machine__onTransition")
+export const onEnter = Symbol("@terrygonguet/svelte-state-machine__onEnter")
+export const onExit = Symbol("@terrygonguet/svelte-state-machine__onExit")
+export const onStay = Symbol("@terrygonguet/svelte-state-machine__onStay")
 
-export type StateMachine<
-	State extends { type: string },
-	Action extends { type: string },
-> = {
-	[StateType in State["type"]]?: {
-		[ActionType in Action["type"]]?: <
-			CurState extends State & { type: StateType },
-			CurAction extends Action & { type: ActionType },
-		>(
-			state: CurState,
-			action: CurAction,
-		) => State | Promise<State>
-	}
+type MachineHookSymbols = typeof onError | typeof onStateChange
+type MachineHooks<State extends { type: string }, Action extends { type: string }> = {
+	[onError]: (state: State, action: Action, error: unknown) => State
+	[onStateChange]: (prevState: State, curState: State, action: Action) => void
 }
 
-type Is<State extends { type: string }> = {
-	[StateType in State["type"]]: Readable<boolean>
+type StateHookSymbols = typeof onEnter | typeof onExit | typeof onStay
+type StateHooks<State extends { type: string }, Action extends { type: string }, StateType extends State["type"]> = {
+	[onEnter]: (prevState: State, curState: Extract<State, { type: StateType }>, action: Action) => void
+	[onExit]: (curState: Extract<State, { type: StateType }>, nextState: State, action: Action) => void
+	[onStay]: (
+		prevState: Extract<State, { type: StateType }>,
+		curState: Extract<State, { type: StateType }>,
+		action: Action,
+	) => void
 }
 
-type StateMachineOptions<
+type TransitionFn<
 	State extends { type: string },
 	Action extends { type: string },
-> = {
-	asyncMode?: "block" | "abort"
-	onError?: (error: unknown, state: State, action: Action) => State
-	hooks?: {
-		[StateType in State["type"]]?: {
-			onEnter?: <CurState extends State & { type: StateType }>(
-				prevState: State,
-				nextState: CurState,
-				action: Action,
-			) => void
-			onExit?: <PrevState extends State & { type: StateType }>(
-				prevState: PrevState,
-				nextState: State,
-				action: Action,
-			) => void
-			onStay?: <CurState extends State & { type: StateType }>(
-				prevState: CurState,
-				nextState: CurState,
-				action: Action,
-			) => void
-			onAsyncTransition?: <CurState extends State & { type: StateType }>(
-				state: CurState,
-				action: Action,
-			) => State | undefined
-		}
-	}
-}
+	StateType extends State["type"],
+	ActionType extends Action["type"],
+> = (
+	state: Extract<State, { type: StateType }>,
+	action: Extract<Action, { type: ActionType }>,
+) => State | AsyncGenerator<State, State, undefined>
 
-type StateMachineBundle<
-	State extends { type: string },
-	Action extends { type: string },
-> = {
-	state: Readable<State>
-	dispatch(action: Action): void
-	transitioning: Readable<boolean>
-	is: Is<State>
-}
-
-export function stateMachine<
-	State extends { type: string },
-	Action extends { type: string },
->(
-	initialState: State,
-	machine: StateMachine<State, Action>,
-): StateMachineBundle<State, Action>
-export function stateMachine<
-	State extends { type: string },
-	Action extends { type: string },
->(
-	initialState: State,
-	options: StateMachineOptions<State, Action>,
-	machine: StateMachine<State, Action>,
-): StateMachineBundle<State, Action>
-export function stateMachine<
-	State extends { type: string },
-	Action extends { type: string },
->(
-	initialState: State,
-	machineOrOptions:
-		| StateMachineOptions<State, Action>
-		| StateMachine<State, Action>,
-	maybeMachine?: StateMachine<State, Action>,
-) {
-	if (maybeMachine)
-		return _stateMachine(initialState, machineOrOptions, maybeMachine)
-	else
-		return _stateMachine(
-			initialState,
-			{},
-			machineOrOptions as StateMachine<State, Action>,
-		)
-}
-
-function _stateMachine<
-	State extends { type: string },
-	Action extends { type: string },
->(
-	initialState: State,
-	{ asyncMode = "block", onError, hooks }: StateMachineOptions<State, Action>,
-	machine: StateMachine<State, Action>,
-): StateMachineBundle<State, Action> {
-	let state = writable(initialState)
-
-	let transitioning = writable(false)
-	let $transitioning = false
-	transitioning.subscribe(value => ($transitioning = value))
-
-	let abortController: AbortController | undefined = undefined
-
-	function dispatch($action: Action) {
-		if ($transitioning) {
-			switch (asyncMode) {
-				case "abort":
-					abortController?.abort()
-					break
-				case "block":
-					return
+export type MachineDefinition<State extends { type: string }, Action extends { type: string }> = {
+	[StateType in State["type"] | MachineHookSymbols]?: StateType extends MachineHookSymbols
+		? MachineHooks<State, Action>[StateType]
+		: {
+				[ActionType in Action["type"] | StateHookSymbols]?: ActionType extends StateHookSymbols
+					? StateHooks<State, Action, Exclude<StateType, MachineHookSymbols>>[ActionType]
+					: TransitionFn<
+							State,
+							Action,
+							Exclude<StateType, MachineHookSymbols>,
+							Exclude<ActionType, StateHookSymbols>
+						>
 			}
-		}
+}
 
-		state.update($state => {
-			let stateType = $state.type as State["type"]
-			let actionType = $action.type as Action["type"]
-			let reducer = machine[stateType]?.[actionType]
-			let { onExit, onAsyncTransition } = hooks?.[stateType] ?? {}
+export type StateMachine<State extends { type: string }, Action extends { type: string }> = {
+	state: State
+	definition: MachineDefinition<State, Action>
+	dispatch(action: Action): Promise<void>
+}
 
-			function runHooks(next: State) {
-				let nextType = next.type as State["type"]
-				if ($state.type != next.type) {
-					onExit?.($state, next, $action)
-					hooks?.[nextType]?.onEnter?.($state, next, $action)
-				} else {
-					hooks?.[nextType]?.onStay?.($state, next, $action)
-				}
-			}
+export function stateMachine<State extends { type: string }, Action extends { type: string }>(
+	initialState: State,
+	machineDefinition: MachineDefinition<State, Action>,
+): StateMachine<State, Action> {
+	let activeGenerator: AsyncGenerator<State, State, never> | null = null
+
+	const machine = {
+		state: initialState,
+		definition: machineDefinition,
+		async dispatch(action: Action) {
+			const stateType = this.state.type as State["type"]
+			const actionType = action.type as Action["type"]
+			const transitionFn = machineDefinition[stateType]?.[actionType]
+			if (!transitionFn) return
 
 			try {
-				let next = reducer?.($state, $action) ?? $state
-				if (next instanceof Promise) {
-					transitioning.set(true)
-
-					let loadingState = onAsyncTransition?.($state, $action)
-
-					if (asyncMode == "abort") {
-						abortController = new AbortController()
-						next = abortable(next, abortController.signal)
-					}
-
-					next.then(
-						next => {
-							runHooks(next)
-							state.set(next)
-							transitioning.set(false)
-						},
-						error => {
-							if (isAbortError(error)) return
-							transitioning.set(false)
-							if (onError)
-								state.set(onError(error, $state, $action))
-							else throw error
-						},
-					)
-
-					return loadingState ?? $state
+				const nextOrGenerator = transitionFn(
+					this.state as Extract<State, { type: string }>,
+					action as Extract<Action, { type: string }>,
+				)
+				if ("type" in nextOrGenerator) {
+					activeGenerator?.return(undefined as any)
+					activeGenerator = null
+					this._applyTransition(nextOrGenerator, action)
 				} else {
-					runHooks(next)
-					return next
+					activeGenerator = nextOrGenerator
+					while (true) {
+						// TODO the generator can still throw even after being forcefully return()'d. how fix?
+						const step = await nextOrGenerator.next()
+						if (activeGenerator != nextOrGenerator) break
+						if (step.value != undefined) this._applyTransition(step.value, action)
+						if (step.done) break
+					}
 				}
 			} catch (error) {
-				if (onError) return onError(error, $state, $action)
-				else throw error
+				if (machineDefinition[onError]) {
+					const nextState = machineDefinition[onError](this.state, action, error)
+					this._applyTransition(nextState, action)
+				} else throw error
 			}
-		})
+		},
+		_applyTransition(next: State, action: Action) {
+			const curState = this.state as Extract<State, { type: string }>
+			const nextState = next as Extract<State, { type: string }>
+			const stateType = curState.type as State["type"]
+			if (curState.type == nextState.type) {
+				this.state = nextState
+				machineDefinition[stateType]?.[onStay]?.(curState, nextState, action)
+				machineDefinition[onStateChange]?.(curState, nextState, action)
+			} else {
+				machineDefinition[stateType]?.[onExit]?.(curState, nextState, action)
+				this.state = nextState
+				machineDefinition[nextState.type as State["type"]]?.[onEnter]?.(curState, nextState, action)
+				machineDefinition[onStateChange]?.(curState, nextState, action)
+			}
+		},
 	}
 
-	let is = Object.fromEntries(
-		Object.keys(machine).map(type => [
-			type,
-			derived(state, $state => $state.type == type),
-		]),
-	) as Is<State>
-
-	return {
-		state: readonly(state),
-		transitioning: readonly(transitioning),
-		dispatch,
-		is,
-	}
-}
-
-/**
- * From https://jsr.io/@std/async/0.224.2/abortable.ts
- */
-function abortable<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
-	if (signal.aborted) {
-		return Promise.reject(new DOMException(signal.reason, "AbortError"))
-	}
-	let reject: (reason: unknown) => void
-	const promise = new Promise<never>((res, rej) => (reject = rej))
-	const abort = () => reject(new DOMException(signal.reason, "AbortError"))
-	signal.addEventListener("abort", abort, { once: true })
-	return Promise.race([promise, p]).finally(() => {
-		signal.removeEventListener("abort", abort)
-	})
-}
-
-function isAbortError(error: unknown): error is DOMException {
-	return error instanceof DOMException && error.name == "AbortError"
+	return machine
 }
