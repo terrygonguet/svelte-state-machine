@@ -1,7 +1,7 @@
-# @terrygonguet/svelte-state-machine
+# @terrygonguet/state-machine
 
-A utility package to create a fully typed [state machine](https://www.baeldung.com/cs/state-machines) with associated
-data. With special [Svelte](https://svelte.dev/docs) utils.
+A utility package to create a fully typed [state machine](https://www.baeldung.com/cs/state-machines) with data associated
+with each state and transition. With special [Svelte](https://svelte.dev/docs) utils.
 
 ## Installation
 
